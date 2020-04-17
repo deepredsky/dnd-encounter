@@ -2,23 +2,15 @@ port module Main exposing
     ( Character
     , Model
     , Msg(..)
-    , emptyModel
-    , infoFooter
     , init
     , main
-    , newCharacter
     , setStorage
     , update
     , updateWithStorage
     , view
-    , viewCharacter
-    , viewCharacters
-    , viewForm
-    , viewKeyedCharacter
     )
 
 import Browser
-import Browser.Dom as Dom
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -26,7 +18,6 @@ import Html.Keyed as Keyed
 import Html.Lazy exposing (lazy, lazy2)
 import Json.Decode as Json exposing (andThen, field)
 import Json.Encode as E
-import Task
 
 
 main : Program (Maybe E.Value) Model Msg
