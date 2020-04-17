@@ -19,7 +19,6 @@ port module Main exposing
 
 import Browser
 import Browser.Dom as Dom
-import Debug
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -530,5 +529,6 @@ resultToMaybe result =
         Result.Ok model ->
             Just model
 
-        Result.Err error ->
-            Debug.log (Json.errorToString error) Nothing
+        Result.Err _ ->
+            -- Debug.log (Json.errorToString error) Nothing
+            Nothing

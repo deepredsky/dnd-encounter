@@ -1,0 +1,27 @@
+{
+  "name": "dnd-encounter",
+  "version": "1.0.0",
+  "description": "D&D Enounter App",
+  "main": "elm.js",
+  "scripts": {
+    "start": "elm-live src/Main.elm -- --output=elm.js",
+    "test": "elm-format . --validate && elm-test",
+    "serve": "python -m SimpleHTTPServer 8000",
+    "build": "elm make src/Main.elm --output=elm.js --optimize",
+    "build-dev": "elm make src/Main.elm --output=elm.js",
+    "build-debug": "elm make src/Main.elm --debug --output=elm.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deepredsky/dnd-encounter.git"
+  },
+  "keywords": [
+    "elm"
+  ],
+  "author": "Rajesh Sharma",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/deepredsky/dnd-encounter/issues"
+  },
+  "homepage": "https://github.com/deepredsky/dnd-encounter#readme"
+}
