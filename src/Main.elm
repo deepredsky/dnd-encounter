@@ -288,8 +288,10 @@ view model =
         [ class "container" ]
         [ section
             [ class "content" ]
-            [ viewForm model
-            , lazy viewCharacters model.characters
+            [ div [ class "columns" ]
+                [ div [ class "column is-one-third" ] [ viewForm model ]
+                , div [ class "column" ] [ lazy viewCharacters model.characters ]
+                ]
             ]
         , infoFooter
         ]
@@ -375,7 +377,8 @@ viewCharacters characters =
         [ class "main"
         , style "visibility" cssVisibility
         ]
-        [ Keyed.node "table" [ class "table is-bordered" ] <|
+        [ h1 [] [ text "Characters" ]
+        , Keyed.node "table" [ class "table is-bordered" ] <|
             List.map viewKeyedCharacter characters
         ]
 
