@@ -4,12 +4,12 @@
   "description": "D&D Enounter App",
   "main": "elm.js",
   "scripts": {
-    "start": "elm-live src/Main.elm -- --output=elm.js",
+    "start": "elm-live src/Main.elm --dir=./static -- --output=static/js/elm.js",
     "test": "elm-format . --validate && elm-test",
-    "serve": "python -m SimpleHTTPServer 8000",
-    "build": "elm make src/Main.elm --output=elm.js --optimize",
-    "build-dev": "elm make src/Main.elm --output=elm.js",
-    "build-debug": "elm make src/Main.elm --debug --output=elm.js"
+    "serve": "http-server -p 8000 static",
+    "build": "elm make src/Main.elm --output=static/js/elm.js --optimize",
+    "build-dev": "elm make src/Main.elm --output=static/js/elm.js",
+    "build-debug": "elm make src/Main.elm --debug --output=static/js/elm.js"
   },
   "repository": {
     "type": "git",
@@ -23,5 +23,8 @@
   "bugs": {
     "url": "https://github.com/deepredsky/dnd-encounter/issues"
   },
-  "homepage": "https://github.com/deepredsky/dnd-encounter#readme"
+  "homepage": "https://github.com/deepredsky/dnd-encounter#readme",
+  "dependencies": {
+    "elm": "^0.19.1-3"
+  }
 }
