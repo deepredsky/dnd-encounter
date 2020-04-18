@@ -1,6 +1,5 @@
 port module Main exposing
-    ( Character
-    , Model
+    ( Model
     , Msg(..)
     , init
     , main
@@ -11,11 +10,26 @@ port module Main exposing
     )
 
 import Browser
+import Character
+    exposing
+        ( Character
+        , characterDecoder
+        , characterToValue
+        , emptyCharacter
+        , emptyCharacterForm
+        , newCharacter
+        )
+import Encounter
+    exposing
+        ( Encounter
+        , encounterDecoder
+        , encounterToValue
+        )
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Html.Keyed as Keyed
-import Html.Lazy exposing (lazy, lazy2)
+import Html.Lazy exposing (lazy)
 import Json.Decode as Json exposing (andThen, field)
 import Json.Encode as E
 
@@ -55,34 +69,10 @@ type EditingState
 
 type alias Model =
     { encounters : List Encounter
-    , form : Form
+    , characterForm : Character.Form
     , characters : List Character
     , uid : Int
     , editing : EditingState
-    }
-
-
-type alias Character =
-    { name : String
-    , hit_points : Int
-    , armour : Int
-    , initiative : Int
-    , id : Int
-    }
-
-
-type alias Encounter =
-    { characters : List Int
-    , name : String
-    , current : Int
-    }
-
-
-type alias Form =
-    { name : String
-    , hit_points : Int
-    , armour : Int
-    , initiative : Int
     }
 
 
@@ -90,23 +80,9 @@ emptyModel : Model
 emptyModel =
     { characters = []
     , encounters = []
-    , form =
-        { name = ""
-        , hit_points = 0
-        , armour = 0
-        , initiative = 0
-        }
+    , characterForm = Character.newCharacterForm
     , uid = 1
     , editing = NotEditing
-    }
-
-
-emptyCharacter =
-    { name = ""
-    , id = 0
-    , armour = 0
-    , hit_points = 0
-    , initiative = 0
     }
 
 
@@ -115,11 +91,11 @@ saveCharacter model id =
     let
         save character =
             if character.id == id then
-                { name = model.form.name
+                { name = model.characterForm.name
                 , id = id
-                , armour = model.form.armour
-                , hit_points = model.form.hit_points
-                , initiative = model.form.initiative
+                , armour = model.characterForm.armour
+                , hit_points = model.characterForm.hit_points
+                , initiative = model.characterForm.initiative
                 }
 
             else
@@ -128,19 +104,9 @@ saveCharacter model id =
     List.map save model.characters
 
 
-newCharacter : Form -> Int -> Character
-newCharacter form id =
-    { name = form.name
-    , id = id
-    , armour = form.armour
-    , hit_points = form.hit_points
-    , initiative = form.initiative
-    }
-
-
-updateForm : (Form -> Form) -> Model -> ( Model, Cmd Msg )
+updateForm : (Character.Form -> Character.Form) -> Model -> ( Model, Cmd Msg )
 updateForm transform model =
-    ( { model | form = transform model.form }, Cmd.none )
+    ( { model | characterForm = transform model.characterForm }, Cmd.none )
 
 
 init : Maybe E.Value -> ( Model, Cmd Msg )
@@ -182,21 +148,16 @@ update msg model =
         Add ->
             ( { model
                 | uid = model.uid + 1
-                , form =
-                    { name = ""
-                    , hit_points = 0
-                    , armour = 0
-                    , initiative = 0
-                    }
+                , characterForm = emptyCharacterForm
                 , editing = NotEditing
                 , characters =
-                    if String.isEmpty model.form.name then
+                    if String.isEmpty model.characterForm.name then
                         model.characters
 
                     else
                         case model.editing of
                             NotEditing ->
-                                model.characters ++ [ newCharacter model.form model.uid ]
+                                model.characters ++ [ newCharacter model.characterForm model.uid ]
 
                             Editing id ->
                                 saveCharacter model id
@@ -238,7 +199,7 @@ update msg model =
             in
             ( { model
                 | uid = id
-                , form =
+                , characterForm =
                     { name = character.name
                     , hit_points = character.hit_points
                     , armour = character.armour
@@ -283,7 +244,7 @@ view model =
                 , div [ class "column" ] [ lazy viewCharacters model.characters ]
                 ]
             ]
-        , infoFooter
+        , viewFooter
         ]
 
 
@@ -291,7 +252,7 @@ viewForm : Model -> Html Msg
 viewForm model =
     let
         form =
-            model.form
+            model.characterForm
     in
     Html.form [ onSubmit Add ]
         [ div [ class "field" ]
@@ -340,39 +301,6 @@ viewForm model =
         ]
 
 
-buttonText editing =
-    case editing of
-        NotEditing ->
-            "Create Character"
-
-        Editing a ->
-            "Update Character"
-
-
-
--- VIEW ALL characters
-
-
-viewCharacters : List Character -> Html Msg
-viewCharacters characters =
-    let
-        cssVisibility =
-            if List.isEmpty characters then
-                "hidden"
-
-            else
-                "visible"
-    in
-    section
-        [ class "main"
-        , style "visibility" cssVisibility
-        ]
-        [ h1 [] [ text "Characters" ]
-        , Keyed.node "table" [ class "table is-bordered" ] <|
-            List.map viewKeyedCharacter characters
-        ]
-
-
 viewKeyedCharacter : Character -> ( String, Html Msg )
 viewKeyedCharacter character =
     ( String.fromInt character.id, lazy viewCharacter character )
@@ -399,8 +327,27 @@ viewCharacter character =
         ]
 
 
-infoFooter : Html msg
-infoFooter =
+viewCharacters : List Character -> Html Msg
+viewCharacters characters =
+    section
+        [ class "main" ]
+        [ h1 [] [ text "Characters" ]
+        , Keyed.node "table" [ class "table is-bordered" ] <|
+            List.map viewKeyedCharacter characters
+        ]
+
+
+buttonText editing =
+    case editing of
+        NotEditing ->
+            "Create Character"
+
+        Editing _ ->
+            "Update Character"
+
+
+viewFooter : Html msg
+viewFooter =
     footer [ class "footer" ]
         [ div [ class "content has-text-centered" ]
             [ p []
@@ -420,27 +367,9 @@ modelToValue model =
     E.object
         [ ( "characters", E.list characterToValue model.characters )
         , ( "encounters", E.list encounterToValue model.encounters )
-        , ( "form", formToValue model.form )
+        , ( "characterForm", formToValue model.characterForm )
         , ( "uid", E.int model.uid )
         , ( "editing", editingStateToValue model.editing )
-        ]
-
-
-characterToValue character =
-    E.object
-        [ ( "name", E.string character.name )
-        , ( "hit_points", E.int character.hit_points )
-        , ( "armour", E.int character.armour )
-        , ( "initiative", E.int character.initiative )
-        , ( "id", E.int character.id )
-        ]
-
-
-encounterToValue encounter =
-    E.object
-        [ ( "characters", E.list E.int encounter.characters )
-        , ( "name", E.string encounter.name )
-        , ( "current", E.int encounter.current )
         ]
 
 
@@ -465,41 +394,10 @@ formToValue form =
 modelDecoder =
     Json.map5 Model
         (field "encounters" (Json.list encounterDecoder))
-        (field "form" formDecoder)
+        (field "characterForm" Character.formDecoder)
         (field "characters" (Json.list characterDecoder))
         (field "uid" Json.int)
         (field "editing" editingStateDecoder)
-
-
-formDecoder : Json.Decoder Form
-formDecoder =
-    Json.map4 Form
-        (field "name" Json.string)
-        (field "armour" Json.int)
-        (field "hit_points" Json.int)
-        (field "initiative" Json.int)
-
-
-characterDecoder : Json.Decoder Character
-characterDecoder =
-    Json.map5 Character
-        (field "name" Json.string)
-        (field "armour" Json.int)
-        (field "hit_points" Json.int)
-        (field "initiative" Json.int)
-        (field "id" Json.int)
-
-
-encounterDecoder : Json.Decoder Encounter
-encounterDecoder =
-    Json.map3 Encounter
-        (field "characters" (Json.list Json.int))
-        (field "name" Json.string)
-        (field "current" Json.int)
-
-
-
--- editingStateDecoder : Json.Decoder EditingState
 
 
 editingStateDecoder =
