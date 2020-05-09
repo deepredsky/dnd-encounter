@@ -1,23 +1,20 @@
-port module Main exposing
-    ( Model
-    , Msg(..)
-    , init
-    , main
-    , setStorage
-    , update
-    , updateWithStorage
-    , view
-    )
+port module Main exposing (main)
 
 import Browser
+import Browser.Navigation as Nav
 import Character
     exposing
-        ( Character
+        ( Model
+        , Msg
         , characterDecoder
         , characterToValue
         , emptyCharacter
         , emptyCharacterForm
+        , formDecoder
+        , init
         , newCharacter
+        , update
+        , view
         )
 import Encounter
     exposing
@@ -32,15 +29,23 @@ import Html.Keyed as Keyed
 import Html.Lazy exposing (lazy)
 import Json.Decode as Json exposing (andThen, field)
 import Json.Encode as E
+import Session exposing (Data, emptyData)
+import Url
+import Url.Parser as Parser exposing ((</>), Parser, custom, fragment, map, oneOf, s, top)
 
 
-main : Program (Maybe E.Value) Model Msg
+
+-- main : Program (Maybe E.Value) Model Msg
+
+
 main =
-    Browser.document
+    Browser.application
         { init = init
-        , view = \model -> { title = "D&D Encounter App", body = [ view model ] }
+        , view = view
         , update = updateWithStorage
         , subscriptions = \_ -> Sub.none
+        , onUrlRequest = LinkClicked
+        , onUrlChange = UrlChanged
         }
 
 
@@ -52,75 +57,65 @@ updateWithStorage msg model =
     let
         ( newModel, cmds ) =
             update msg model
+
+        session =
+            sessionFromModel newModel
     in
     ( newModel
-    , Cmd.batch [ setStorage (modelToValue newModel), cmds ]
+    , Cmd.batch [ setStorage (sessionToValue session), cmds ]
     )
+
+
+sessionFromModel : Model -> Session.Data
+sessionFromModel model =
+    case model.page of
+        TestPage session ->
+            session
+
+        NotFound session ->
+            session
+
+        Character m ->
+            m.session
 
 
 
 -- MODEL
 
 
-type EditingState
-    = Editing Int
-    | NotEditing
-
-
 type alias Model =
-    { encounters : List Encounter
-    , characterForm : Character.Form
-    , characters : List Character
-    , uid : Int
-    , editing : EditingState
+    { page : Page
     }
+
+
+type Page
+    = NotFound Session.Data
+    | TestPage Session.Data
+    | Character Character.Model
 
 
 emptyModel : Model
 emptyModel =
-    { characters = []
-    , encounters = []
-    , characterForm = Character.newCharacterForm
-    , uid = 1
-    , editing = NotEditing
+    { page = NotFound Session.emptyData
     }
 
 
-saveCharacter : Model -> Int -> List Character
-saveCharacter model id =
+init : Maybe E.Value -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init savedModel url _ =
     let
-        save character =
-            if character.id == id then
-                { name = model.characterForm.name
-                , id = id
-                , armour = model.characterForm.armour
-                , hit_points = model.characterForm.hit_points
-                , initiative = model.characterForm.initiative
-                }
+        session value =
+            Maybe.withDefault Session.emptyData (Json.decodeValue sessionDecoder value |> resultToMaybe)
 
-            else
-                character
-    in
-    List.map save model.characters
-
-
-updateForm : (Character.Form -> Character.Form) -> Model -> ( Model, Cmd Msg )
-updateForm transform model =
-    ( { model | characterForm = transform model.characterForm }, Cmd.none )
-
-
-init : Maybe E.Value -> ( Model, Cmd Msg )
-init savedModel =
-    let
         model =
             case savedModel of
                 Just value ->
-                    Maybe.withDefault emptyModel (Json.decodeValue modelDecoder value |> resultToMaybe)
+                    { page = NotFound (session value)
+                    }
 
                 _ ->
                     emptyModel
     in
-    ( model, Cmd.none )
+    stepUrl url model
 
 
 
@@ -129,102 +124,75 @@ init savedModel =
 
 type Msg
     = NoOp
-    | UpdateNameField String
-    | UpdateInitiativeField String
-    | UpdateArmourField String
-    | UpdateHitPointsField String
-    | EditingCharacter Int
-    | UpdateCharacter Int String
-    | Add
-    | Delete Int
+    | CharacterMsg Character.Msg
+    | LinkClicked Browser.UrlRequest
+    | UrlChanged Url.Url
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
-    case msg of
+update message model =
+    case message of
         NoOp ->
             ( model, Cmd.none )
 
-        Add ->
-            ( { model
-                | uid = model.uid + 1
-                , characterForm = emptyCharacterForm
-                , editing = NotEditing
-                , characters =
-                    if String.isEmpty model.characterForm.name then
-                        model.characters
+        LinkClicked _ ->
+            ( model, Cmd.none )
 
-                    else
-                        case model.editing of
-                            NotEditing ->
-                                model.characters ++ [ newCharacter model.characterForm model.uid ]
+        UrlChanged url ->
+            stepUrl url model
 
-                            Editing id ->
-                                saveCharacter model id
-              }
-            , Cmd.none
-            )
+        CharacterMsg msg ->
+            case model.page of
+                Character data ->
+                    stepSearch model (Character.update msg data)
 
-        UpdateNameField str ->
-            updateForm (\form -> { form | name = str }) model
+                _ ->
+                    ( model, Cmd.none )
 
-        UpdateHitPointsField str ->
-            let
-                newHitPoint =
-                    Maybe.withDefault 0 (String.toInt str)
-            in
-            updateForm (\form -> { form | hit_points = newHitPoint }) model
 
-        UpdateArmourField str ->
-            let
-                newHitPoint =
-                    Maybe.withDefault 0 (String.toInt str)
-            in
-            updateForm (\form -> { form | armour = newHitPoint }) model
+stepSearch : Model -> ( Character.Model, Cmd Character.Msg ) -> ( Model, Cmd Msg )
+stepSearch model ( data, cmds ) =
+    ( { model | page = Character data }
+    , Cmd.map CharacterMsg cmds
+    )
 
-        UpdateInitiativeField str ->
-            let
-                newHitPoint =
-                    Maybe.withDefault 0 (String.toInt str)
-            in
-            updateForm (\form -> { form | initiative = newHitPoint }) model
 
-        EditingCharacter id ->
-            let
-                maybeCharacter =
-                    List.head (List.filter (\c -> c.id == id) model.characters)
+exit : Model -> Session.Data
+exit model =
+    case model.page of
+        TestPage session ->
+            session
 
-                character =
-                    Maybe.withDefault emptyCharacter maybeCharacter
-            in
-            ( { model
-                | uid = id
-                , characterForm =
-                    { name = character.name
-                    , hit_points = character.hit_points
-                    , armour = character.armour
-                    , initiative = character.initiative
-                    }
-                , editing = Editing id
-              }
-            , Cmd.none
-            )
+        NotFound session ->
+            session
 
-        UpdateCharacter id task ->
-            let
-                updateCharacter t =
-                    if t.id == id then
-                        { t | name = task }
+        Character m ->
+            m.session
 
-                    else
-                        t
-            in
-            ( { model | characters = List.map updateCharacter model.characters }
-            , Cmd.none
-            )
 
-        Delete id ->
-            ( { model | characters = List.filter (\t -> t.id /= id) model.characters }
+route : Parser a b -> a -> Parser (b -> c) c
+route parser handler =
+    Parser.map handler parser
+
+
+stepUrl : Url.Url -> Model -> ( Model, Cmd Msg )
+stepUrl url model =
+    let
+        session =
+            exit model
+
+        parser =
+            oneOf
+                [ route top
+                    (stepSearch model (Character.init session))
+                ]
+    in
+    case Parser.parse parser url of
+        Just answer ->
+            answer
+
+        Nothing ->
+            ( { model | page = NotFound session }
             , Cmd.none
             )
 
@@ -233,117 +201,29 @@ update msg model =
 -- VIEW
 
 
-view : Model -> Html Msg
+view : Model -> Browser.Document Msg
 view model =
-    div
-        [ class "container" ]
-        [ section
-            [ class "content" ]
-            [ div [ class "columns" ]
-                [ div [ class "column is-one-third" ] [ viewForm model ]
-                , div [ class "column" ] [ lazy viewCharacters model.characters ]
+    case model.page of
+        TestPage _ ->
+            { title = "oeuoeu"
+            , body =
+                [ div [] [ text "wtf" ]
                 ]
-            ]
-        , viewFooter
-        ]
+            }
 
-
-viewForm : Model -> Html Msg
-viewForm model =
-    let
-        form =
-            model.characterForm
-    in
-    Html.form [ onSubmit Add ]
-        [ div [ class "field" ]
-            [ label [ class "label" ] [ text "Name" ]
-            , input
-                [ class "input input-lg"
-                , placeholder "Name"
-                , autofocus True
-                , onInput UpdateNameField
-                , value form.name
+        NotFound _ ->
+            { title = "404"
+            , body =
+                [ div [] [ text "404 not found" ]
                 ]
-                []
-            ]
-        , div [ class "field" ]
-            [ label [ class "label" ] [ text "Hit Points" ]
-            , input
-                [ class "input input-lg"
-                , placeholder "Hit Points"
-                , onInput UpdateHitPointsField
-                , value (String.fromInt form.hit_points)
+            }
+
+        Character d ->
+            { title = "Characters"
+            , body =
+                [ Html.map CharacterMsg (Character.view d)
                 ]
-                []
-            ]
-        , div [ class "field" ]
-            [ label [ class "label" ] [ text "Armour" ]
-            , input
-                [ class "input input-lg"
-                , placeholder "Armour"
-                , onInput UpdateArmourField
-                , value (String.fromInt form.armour)
-                ]
-                []
-            ]
-        , div [ class "field" ]
-            [ label [ class "label" ] [ text "Initiative" ]
-            , input
-                [ class "input input-lg"
-                , placeholder "Initiative"
-                , onInput UpdateInitiativeField
-                , value (String.fromInt form.initiative)
-                ]
-                []
-            ]
-        , button [ class "button is-primary" ]
-            [ text <| buttonText model.editing ]
-        ]
-
-
-viewKeyedCharacter : Character -> ( String, Html Msg )
-viewKeyedCharacter character =
-    ( String.fromInt character.id, lazy viewCharacter character )
-
-
-viewCharacter : Character -> Html Msg
-viewCharacter character =
-    tr
-        []
-        [ td [] [ text character.name ]
-        , td [] [ text (String.fromInt character.hit_points) ]
-        , td [] [ text (String.fromInt character.armour) ]
-        , td [] [ text (String.fromInt character.initiative) ]
-        , td []
-            [ button
-                [ onClick (Delete character.id)
-                ]
-                [ text "Delete" ]
-            , button
-                [ onClick (EditingCharacter character.id)
-                ]
-                [ text "Edit" ]
-            ]
-        ]
-
-
-viewCharacters : List Character -> Html Msg
-viewCharacters characters =
-    section
-        [ class "main" ]
-        [ h1 [] [ text "Characters" ]
-        , Keyed.node "table" [ class "table is-bordered" ] <|
-            List.map viewKeyedCharacter characters
-        ]
-
-
-buttonText editing =
-    case editing of
-        NotEditing ->
-            "Create Character"
-
-        Editing _ ->
-            "Update Character"
+            }
 
 
 viewFooter : Html msg
@@ -363,54 +243,19 @@ viewFooter =
         ]
 
 
-modelToValue model =
+sessionToValue session =
     E.object
-        [ ( "characters", E.list characterToValue model.characters )
-        , ( "encounters", E.list encounterToValue model.encounters )
-        , ( "characterForm", formToValue model.characterForm )
-        , ( "uid", E.int model.uid )
-        , ( "editing", editingStateToValue model.editing )
+        [ ( "characters", E.list characterToValue session.characters )
+        , ( "encounters", E.list encounterToValue session.encounters )
+        , ( "uid", E.int session.uid )
         ]
 
 
-editingStateToValue editingState =
-    case editingState of
-        Editing a ->
-            E.int a
-
-        NotEditing ->
-            E.null
-
-
-formToValue form =
-    E.object
-        [ ( "name", E.string form.name )
-        , ( "hit_points", E.int form.hit_points )
-        , ( "armour", E.int form.armour )
-        , ( "initiative", E.int form.initiative )
-        ]
-
-
-modelDecoder =
-    Json.map5 Model
+sessionDecoder =
+    Json.map3 Session.Data
         (field "encounters" (Json.list encounterDecoder))
-        (field "characterForm" Character.formDecoder)
         (field "characters" (Json.list characterDecoder))
         (field "uid" Json.int)
-        (field "editing" editingStateDecoder)
-
-
-editingStateDecoder =
-    Json.oneOf [ Json.int, Json.null 0 ]
-        |> andThen
-            (\num ->
-                case num of
-                    0 ->
-                        Json.succeed NotEditing
-
-                    a ->
-                        Json.succeed (Editing a)
-            )
 
 
 resultToMaybe result =
@@ -418,6 +263,6 @@ resultToMaybe result =
         Result.Ok model ->
             Just model
 
-        Result.Err _ ->
+        Result.Err error ->
             -- Debug.log (Json.errorToString error) Nothing
             Nothing
