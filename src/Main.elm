@@ -82,6 +82,7 @@ sessionFromModel model =
 
 type alias Model =
     { page : Page
+    , key : Nav.Key
     }
 
 
@@ -90,14 +91,15 @@ type Page
     | Character Character.Model
 
 
-emptyModel : Model
-emptyModel =
+emptyModel : Nav.Key -> Model
+emptyModel key =
     { page = NotFound Session.emptyData
+    , key = key
     }
 
 
 init : Maybe E.Value -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
-init savedModel url _ =
+init savedModel url key =
     let
         session value =
             Maybe.withDefault Session.emptyData (Json.decodeValue sessionDecoder value |> resultToMaybe)
@@ -106,10 +108,11 @@ init savedModel url _ =
             case savedModel of
                 Just value ->
                     { page = NotFound (session value)
+                    , key = key
                     }
 
                 _ ->
-                    emptyModel
+                    emptyModel key
     in
     stepUrl url model
 
