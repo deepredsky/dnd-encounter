@@ -238,11 +238,11 @@ view model =
                 ]
             }
 
-        Encounter _ ->
+        Encounter d ->
             { title = "Encounter"
             , body =
                 [ viewHeader
-                , div [] [ text "encounter not found" ]
+                , Html.map EncounterMsg (Encounter.view d)
                 , viewFooter
                 ]
             }
