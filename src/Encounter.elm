@@ -1,18 +1,33 @@
 module Encounter exposing
-    ( Encounter
+    ( Model
+    , Msg
     , encounterDecoder
     , encounterToValue
+    , init
+    , update
     )
 
+import Encounter.Types exposing (Encounter)
 import Json.Decode as Decode exposing (field)
 import Json.Encode as Encode
+import Session
 
 
-type alias Encounter =
-    { characters : List Int
-    , name : String
-    , current : Int
+type Msg
+    = NoOp
+
+
+type alias Model =
+    { session : Session.Data
     }
+
+
+init session =
+    ( { session = session }, Cmd.none )
+
+
+update msg data =
+    ( data, Cmd.none )
 
 
 encounterDecoder : Decode.Decoder Encounter

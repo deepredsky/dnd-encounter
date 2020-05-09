@@ -18,7 +18,8 @@ import Character
         )
 import Encounter
     exposing
-        ( Encounter
+        ( Model
+        , Msg
         , encounterDecoder
         , encounterToValue
         )
@@ -66,16 +67,6 @@ updateWithStorage msg model =
     )
 
 
-sessionFromModel : Model -> Session.Data
-sessionFromModel model =
-    case model.page of
-        NotFound session ->
-            session
-
-        Character m ->
-            m.session
-
-
 
 -- MODEL
 
@@ -89,6 +80,7 @@ type alias Model =
 type Page
     = NotFound Session.Data
     | Character Character.Model
+    | Encounter Encounter.Model
 
 
 emptyModel : Nav.Key -> Model
@@ -124,6 +116,7 @@ init savedModel url key =
 type Msg
     = NoOp
     | CharacterMsg Character.Msg
+    | EncounterMsg Encounter.Msg
     | LinkClicked Browser.UrlRequest
     | UrlChanged Url.Url
 
@@ -157,6 +150,14 @@ update message model =
                 _ ->
                     ( model, Cmd.none )
 
+        EncounterMsg msg ->
+            case model.page of
+                Encounter data ->
+                    stepEncounter model (Encounter.update msg data)
+
+                _ ->
+                    ( model, Cmd.none )
+
 
 stepCharacter : Model -> ( Character.Model, Cmd Character.Msg ) -> ( Model, Cmd Msg )
 stepCharacter model ( data, cmds ) =
@@ -165,13 +166,23 @@ stepCharacter model ( data, cmds ) =
     )
 
 
-exit : Model -> Session.Data
-exit model =
+stepEncounter : Model -> ( Encounter.Model, Cmd Encounter.Msg ) -> ( Model, Cmd Msg )
+stepEncounter model ( data, cmds ) =
+    ( { model | page = Encounter data }
+    , Cmd.map EncounterMsg cmds
+    )
+
+
+sessionFromModel : Model -> Session.Data
+sessionFromModel model =
     case model.page of
         NotFound session ->
             session
 
         Character m ->
+            m.session
+
+        Encounter m ->
             m.session
 
 
@@ -184,12 +195,14 @@ stepUrl : Url.Url -> Model -> ( Model, Cmd Msg )
 stepUrl url model =
     let
         session =
-            exit model
+            sessionFromModel model
 
         parser =
             oneOf
                 [ route top
                     (stepCharacter model (Character.init session))
+                , route (Parser.s "encounters")
+                    (stepEncounter model (Encounter.init session))
                 ]
     in
     case Parser.parse parser url of
@@ -225,6 +238,15 @@ view model =
                 ]
             }
 
+        Encounter _ ->
+            { title = "Encounter"
+            , body =
+                [ viewHeader
+                , div [] [ text "encounter not found" ]
+                , viewFooter
+                ]
+            }
+
 
 viewHeader : Html msg
 viewHeader =
@@ -245,8 +267,10 @@ viewHeader =
             [ div [ class "navbar-start" ]
                 [ a [ class "navbar-item", href "/" ]
                     [ text "Home" ]
-                , a [ class "navbar-item", href "/characters" ]
+                , a [ class "navbar-item", href "/" ]
                     [ text "Characters" ]
+                , a [ class "navbar-item", href "/encounters" ]
+                    [ text "Encounters" ]
                 ]
             ]
         ]

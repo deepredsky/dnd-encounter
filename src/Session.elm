@@ -1,7 +1,7 @@
 module Session exposing (Data, addCharacters, emptyData)
 
 import Character.Types exposing (Character)
-import Encounter exposing (Encounter)
+import Encounter.Types exposing (Encounter)
 
 
 type alias Data =
