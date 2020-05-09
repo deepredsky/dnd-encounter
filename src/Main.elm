@@ -69,9 +69,6 @@ updateWithStorage msg model =
 sessionFromModel : Model -> Session.Data
 sessionFromModel model =
     case model.page of
-        TestPage session ->
-            session
-
         NotFound session ->
             session
 
@@ -90,7 +87,6 @@ type alias Model =
 
 type Page
     = NotFound Session.Data
-    | TestPage Session.Data
     | Character Character.Model
 
 
@@ -144,14 +140,14 @@ update message model =
         CharacterMsg msg ->
             case model.page of
                 Character data ->
-                    stepSearch model (Character.update msg data)
+                    stepCharacter model (Character.update msg data)
 
                 _ ->
                     ( model, Cmd.none )
 
 
-stepSearch : Model -> ( Character.Model, Cmd Character.Msg ) -> ( Model, Cmd Msg )
-stepSearch model ( data, cmds ) =
+stepCharacter : Model -> ( Character.Model, Cmd Character.Msg ) -> ( Model, Cmd Msg )
+stepCharacter model ( data, cmds ) =
     ( { model | page = Character data }
     , Cmd.map CharacterMsg cmds
     )
@@ -160,9 +156,6 @@ stepSearch model ( data, cmds ) =
 exit : Model -> Session.Data
 exit model =
     case model.page of
-        TestPage session ->
-            session
-
         NotFound session ->
             session
 
@@ -184,7 +177,7 @@ stepUrl url model =
         parser =
             oneOf
                 [ route top
-                    (stepSearch model (Character.init session))
+                    (stepCharacter model (Character.init session))
                 ]
     in
     case Parser.parse parser url of
@@ -204,13 +197,6 @@ stepUrl url model =
 view : Model -> Browser.Document Msg
 view model =
     case model.page of
-        TestPage _ ->
-            { title = "oeuoeu"
-            , body =
-                [ div [] [ text "wtf" ]
-                ]
-            }
-
         NotFound _ ->
             { title = "404"
             , body =
@@ -221,9 +207,37 @@ view model =
         Character d ->
             { title = "Characters"
             , body =
-                [ Html.map CharacterMsg (Character.view d)
+                [ viewHeader
+                , Html.map CharacterMsg (Character.view d)
+                , viewFooter
                 ]
             }
+
+
+viewHeader : Html msg
+viewHeader =
+    nav [ attribute "aria-label" "main navigation", class "navbar is-spaced", attribute "role" "navigation" ]
+        [ div [ class "navbar-brand" ]
+            [ a [ class "navbar-item", href "#" ]
+                [ text "D&D    " ]
+            , a [ attribute "aria-expanded" "false", attribute "aria-label" "menu", class "navbar-burger burger", attribute "data-target" "navbarBasicExample", attribute "role" "button" ]
+                [ span [ attribute "aria-hidden" "true" ]
+                    []
+                , span [ attribute "aria-hidden" "true" ]
+                    []
+                , span [ attribute "aria-hidden" "true" ]
+                    []
+                ]
+            ]
+        , div [ class "navbar-menu", id "navbarBasicExample" ]
+            [ div [ class "navbar-start" ]
+                [ a [ class "navbar-item", href "/" ]
+                    [ text "Home" ]
+                , a [ class "navbar-item", href "/characters" ]
+                    [ text "Characters" ]
+                ]
+            ]
+        ]
 
 
 viewFooter : Html msg
@@ -233,11 +247,6 @@ viewFooter =
             [ p []
                 [ strong []
                     [ text "D&D Encounter App" ]
-                ]
-            , p []
-                [ text "Written by "
-                , a [ href "https://github.com/deepredsky" ]
-                    [ text "Rajesh Sharma" ]
                 ]
             ]
         ]
