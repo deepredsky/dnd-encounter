@@ -21,19 +21,56 @@ import Session
 
 type Msg
     = NoOp
+    | UpdateNameField String
+    | Add
 
 
 type alias Model =
     { session : Session.Data
+    , form : Form
     }
 
 
+type alias Form =
+    { name : String }
+
+
+emptyForm =
+    { name = "" }
+
+
 init session =
-    ( { session = session }, Cmd.none )
+    ( { session = session, form = emptyForm }, Cmd.none )
 
 
-update msg data =
-    ( data, Cmd.none )
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case msg of
+        Add ->
+            let
+                session =
+                    model.session
+
+                encounters =
+                    session.encounters
+
+                newSession =
+                    { session | encounters = encounters ++ [ Encounter [] model.form.name 1 1 ] }
+            in
+            ( { model | form = emptyForm, session = newSession }, Cmd.none )
+
+        NoOp ->
+            ( model, Cmd.none )
+
+        UpdateNameField name ->
+            let
+                form =
+                    model.form
+
+                newForm =
+                    { form | name = name }
+            in
+            ( { model | form = newForm }, Cmd.none )
 
 
 view : Model -> Html Msg
@@ -44,9 +81,32 @@ view model =
             [ class "content" ]
             [ div [ class "columns" ]
                 [ div [ class "column is-one-third" ] [ viewEncounters model ]
-                , div [ class "column" ] [ text "form here" ]
+                , div [ class "column" ] [ viewForm model ]
                 ]
             ]
+        ]
+
+
+viewForm : Model -> Html Msg
+viewForm model =
+    let
+        form =
+            model.form
+    in
+    Html.form [ onSubmit Add ]
+        [ div [ class "field" ]
+            [ label [ class "label" ] [ text "Name" ]
+            , input
+                [ class "input input-lg"
+                , placeholder "Name"
+                , autofocus True
+                , onInput UpdateNameField
+                , value form.name
+                ]
+                []
+            ]
+        , button [ class "button is-primary" ]
+            [ text "Add" ]
         ]
 
 
