@@ -30,6 +30,7 @@ import Html.Keyed as Keyed
 import Html.Lazy exposing (lazy)
 import Json.Decode as Json exposing (andThen, field)
 import Json.Encode as E
+import Random
 import Session exposing (Data, emptyData)
 import Url
 import Url.Parser as Parser exposing ((</>), Parser, custom, fragment, map, oneOf, s, top)
@@ -74,6 +75,7 @@ updateWithStorage msg model =
 type alias Model =
     { page : Page
     , key : Nav.Key
+    , roll : Int
     }
 
 
@@ -87,6 +89,7 @@ emptyModel : Nav.Key -> Model
 emptyModel key =
     { page = NotFound Session.emptyData
     , key = key
+    , roll = 0
     }
 
 
@@ -101,6 +104,7 @@ init savedModel url key =
                 Just value ->
                     { page = NotFound (session value)
                     , key = key
+                    , roll = 0
                     }
 
                 _ ->
@@ -119,6 +123,8 @@ type Msg
     | EncounterMsg Encounter.Msg
     | LinkClicked Browser.UrlRequest
     | UrlChanged Url.Url
+    | Roll
+    | NewRoll Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -157,6 +163,17 @@ update message model =
 
                 _ ->
                     ( model, Cmd.none )
+
+        Roll ->
+            ( model, Random.generate NewRoll randomRoll )
+
+        NewRoll num ->
+            ( { model | roll = num }, Cmd.none )
+
+
+randomRoll : Random.Generator Int
+randomRoll =
+    Random.int 0 20
 
 
 stepCharacter : Model -> ( Character.Model, Cmd Character.Msg ) -> ( Model, Cmd Msg )
@@ -235,6 +252,7 @@ view model =
                 [ viewHeader
                 , Html.map CharacterMsg (Character.view d)
                 , viewFooter
+                , viewRoll model.roll
                 ]
             }
 
@@ -273,6 +291,17 @@ viewHeader =
                     [ text "Encounters" ]
                 ]
             ]
+        ]
+
+
+viewRoll : Int -> Html Msg
+viewRoll roll =
+    div []
+        [ div []
+            [ button [ onClick Roll ] [ text "roll" ] ]
+        , div
+            []
+            [ text (String.fromInt roll) ]
         ]
 
 

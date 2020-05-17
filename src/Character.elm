@@ -24,6 +24,7 @@ import Html.Keyed as Keyed
 import Html.Lazy exposing (lazy)
 import Json.Decode as Decode exposing (andThen, field)
 import Json.Encode as Encode
+import Random
 import Session exposing (Data)
 
 
@@ -39,6 +40,8 @@ type alias Form =
 type alias Model =
     { session : Session.Data
     , form : Form
+    , selectedCharacters : List Int
+    , selectedCharacter : Maybe Int
     }
 
 
@@ -58,7 +61,7 @@ newCharacterForm =
 
 init : Session.Data -> ( Model, Cmd Msg )
 init session =
-    ( Model session newCharacterForm, Cmd.none )
+    ( Model session newCharacterForm [] Nothing, Cmd.none )
 
 
 newCharacter : Form -> Int -> Character
@@ -160,6 +163,9 @@ type Msg
     | UpdateCharacter Int String
     | Add
     | Delete Int
+    | SelectCharacter Int Bool
+    | SelectRandomCharacter
+    | NewSelectRandomCharacter Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -280,6 +286,28 @@ update msg model =
             , Cmd.none
             )
 
+        SelectCharacter id selected ->
+            let
+                selectedCharacters =
+                    case selected of
+                        True ->
+                            model.selectedCharacters ++ [ id ]
+
+                        False ->
+                            List.filter (\t -> t /= id) model.selectedCharacters
+            in
+            ( { model | selectedCharacters = selectedCharacters }, Cmd.none )
+
+        SelectRandomCharacter ->
+            ( model, Random.generate NewSelectRandomCharacter (Random.int 0 (List.length model.selectedCharacters)) )
+
+        NewSelectRandomCharacter idx ->
+            ( { model | selectedCharacter = itemAt idx model.selectedCharacters }, Cmd.none )
+
+
+itemAt idx items =
+    List.head <| List.reverse (List.take (idx + 1) items)
+
 
 updateForm : (Form -> Form) -> Model -> ( Model, Cmd Msg )
 updateForm transform model =
@@ -297,7 +325,10 @@ view model =
             [ class "content" ]
             [ div [ class "columns" ]
                 [ div [ class "column is-one-third" ] [ viewForm model ]
-                , div [ class "column" ] [ lazy viewCharacters model.session.characters ]
+                , div [ class "column" ]
+                    [ div [] [ lazy viewCharacters model.session.characters ]
+                    , div [] [ viewSelectedCharacters model ]
+                    ]
                 ]
             ]
         ]
@@ -365,7 +396,8 @@ viewCharacter : Character -> Html Msg
 viewCharacter character =
     tr
         []
-        [ td [] [ text character.name ]
+        [ td [] [ input [ type_ "checkbox", onCheck (SelectCharacter character.id) ] [] ]
+        , td [] [ text character.name ]
         , td [] [ text (String.fromInt character.hit_points) ]
         , td [] [ text (String.fromInt character.armour) ]
         , td [] [ text (String.fromInt character.initiative) ]
@@ -390,6 +422,52 @@ viewCharacters characters =
         , Keyed.node "table" [ class "table is-bordered" ] <|
             List.map viewKeyedCharacter characters
         ]
+
+
+viewSelectedCharacters : Model -> Html Msg
+viewSelectedCharacters model =
+    case List.isEmpty model.selectedCharacters of
+        True ->
+            div [] []
+
+        False ->
+            div []
+                [ hr [] []
+                , div [ class "tags" ] <| List.map (viewSelectedCharacter model) model.selectedCharacters
+                , div [] [ button [ onClick SelectRandomCharacter ] [ text "Choose One" ] ]
+                , div [] [ text <| viewRandomlySelectedCharacter (idToCharacter model.session.characters model.selectedCharacter) ]
+                ]
+
+
+viewRandomlySelectedCharacter : Maybe Character -> String
+viewRandomlySelectedCharacter maybeCharacter =
+    let
+        character =
+            Maybe.withDefault emptyCharacter maybeCharacter
+    in
+    character.name
+
+
+idToCharacter : List Character -> Maybe Int -> Maybe Character
+idToCharacter characters id =
+    case id of
+        Just num ->
+            List.head <| List.filter (\character -> character.id == num) characters
+
+        Nothing ->
+            Nothing
+
+
+viewSelectedCharacter : Model -> Int -> Html Msg
+viewSelectedCharacter model selectedCharactersId =
+    let
+        maybeCharacter =
+            idToCharacter model.session.characters (Just selectedCharactersId)
+
+        char =
+            Maybe.withDefault emptyCharacter maybeCharacter
+    in
+    span [ class "tag is-small is-success" ] [ text char.name ]
 
 
 buttonText editing =
