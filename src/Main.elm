@@ -8,11 +8,7 @@ import Character
         , Msg
         , characterDecoder
         , characterToValue
-        , emptyCharacter
-        , emptyCharacterForm
-        , formDecoder
         , init
-        , newCharacter
         , update
         , view
         )
@@ -26,20 +22,15 @@ import Encounter
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
-import Html.Keyed as Keyed
-import Html.Lazy exposing (lazy)
-import Json.Decode as Json exposing (andThen, field)
+import Json.Decode as Json exposing (field)
 import Json.Encode as E
 import Random
 import Session exposing (Data, emptyData)
 import Url
-import Url.Parser as Parser exposing ((</>), Parser, custom, fragment, map, oneOf, s, top)
+import Url.Parser as Parser exposing (Parser, map, oneOf, s, top)
 
 
-
--- main : Program (Maybe E.Value) Model Msg
-
-
+main : Program (Maybe E.Value) Model Msg
 main =
     Browser.application
         { init = init
@@ -317,6 +308,7 @@ viewFooter =
         ]
 
 
+sessionToValue : Session.Data -> E.Value
 sessionToValue session =
     E.object
         [ ( "characters", E.list characterToValue session.characters )
@@ -325,6 +317,7 @@ sessionToValue session =
         ]
 
 
+sessionDecoder : Json.Decoder Session.Data
 sessionDecoder =
     Json.map3 Session.Data
         (field "encounters" (Json.list encounterDecoder))
@@ -332,6 +325,7 @@ sessionDecoder =
         (field "uid" Json.int)
 
 
+resultToMaybe : Result error a -> Maybe a
 resultToMaybe result =
     case result of
         Result.Ok model ->

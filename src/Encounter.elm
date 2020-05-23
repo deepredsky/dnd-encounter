@@ -35,10 +35,12 @@ type alias Form =
     { name : String }
 
 
+emptyForm : Form
 emptyForm =
     { name = "" }
 
 
+init : Session.Data -> ( Model, Cmd Msg )
 init session =
     ( { session = session, form = emptyForm }, Cmd.none )
 
@@ -128,6 +130,7 @@ viewKeyedEncounter encounter =
     ( String.fromInt encounter.id, lazy viewEncounter encounter )
 
 
+viewEncounter : Encounter -> Html Msg
 viewEncounter encounter =
     tr
         []
@@ -144,6 +147,7 @@ encounterDecoder =
         (field "id" Decode.int)
 
 
+encounterToValue : Encounter -> Encode.Value
 encounterToValue encounter =
     Encode.object
         [ ( "characters", Encode.list Encode.int encounter.characters )

@@ -6,7 +6,6 @@ module Character exposing
     , characterToValue
     , emptyCharacter
     , emptyCharacterForm
-    , formDecoder
     , init
     , newCharacter
     , newCharacterForm
@@ -15,7 +14,6 @@ module Character exposing
     , viewForm
     )
 
-import Browser
 import Character.Types exposing (Character, Stat, Wealth)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -25,7 +23,7 @@ import Html.Lazy exposing (lazy)
 import Json.Decode as Decode exposing (andThen, field)
 import Json.Encode as Encode
 import Random
-import Session exposing (Data)
+import Session
 
 
 type alias Form =
@@ -109,29 +107,7 @@ wealthDecoder =
         (field "electrum" Decode.int)
 
 
-formDecoder : Decode.Decoder Form
-formDecoder =
-    Decode.map5 Form
-        (field "name" Decode.string)
-        (field "armour" Decode.int)
-        (field "hit_points" Decode.int)
-        (field "initiative" Decode.int)
-        (field "editing" editingStateDecoder)
-
-
-editingStateDecoder =
-    Decode.oneOf [ Decode.int, Decode.null 0 ]
-        |> andThen
-            (\num ->
-                case num of
-                    0 ->
-                        Decode.succeed NotEditing
-
-                    a ->
-                        Decode.succeed (Editing a)
-            )
-
-
+characterToValue : Character -> Encode.Value
 characterToValue character =
     Encode.object
         [ ( "id", Encode.int character.id )
@@ -141,6 +117,7 @@ characterToValue character =
         ]
 
 
+statToValue : Stat -> Encode.Value
 statToValue stat =
     Encode.object
         [ ( "hit_points", Encode.int stat.hit_points )
@@ -149,6 +126,7 @@ statToValue stat =
         ]
 
 
+wealthToValue : Wealth -> Encode.Value
 wealthToValue wealth =
     Encode.object
         [ ( "gold", Encode.int wealth.gold )
@@ -355,12 +333,11 @@ update msg model =
         SelectCharacter id selected ->
             let
                 selectedCharacters =
-                    case selected of
-                        True ->
-                            model.selectedCharacters ++ [ id ]
+                    if selected then
+                        model.selectedCharacters ++ [ id ]
 
-                        False ->
-                            List.filter (\t -> t /= id) model.selectedCharacters
+                    else
+                        List.filter (\t -> t /= id) model.selectedCharacters
             in
             ( { model | selectedCharacters = selectedCharacters }, Cmd.none )
 
@@ -371,6 +348,7 @@ update msg model =
             ( { model | selectedCharacter = itemAt idx model.selectedCharacters }, Cmd.none )
 
 
+itemAt : Int -> List a -> Maybe a
 itemAt idx items =
     List.head <| List.reverse (List.take (idx + 1) items)
 
@@ -380,10 +358,7 @@ updateForm transform model =
     ( { model | form = transform model.form }, Cmd.none )
 
 
-
--- view : Model -> Browser.Document Msg
-
-
+view : Model -> Html Msg
 view model =
     div
         [ class "container" ]
@@ -492,17 +467,16 @@ viewCharacters characters =
 
 viewSelectedCharacters : Model -> Html Msg
 viewSelectedCharacters model =
-    case List.isEmpty model.selectedCharacters of
-        True ->
-            div [] []
+    if List.isEmpty model.selectedCharacters then
+        div [] []
 
-        False ->
-            div []
-                [ hr [] []
-                , div [ class "tags" ] <| List.map (viewSelectedCharacter model) model.selectedCharacters
-                , div [] [ button [ onClick SelectRandomCharacter ] [ text "Choose One" ] ]
-                , div [] [ text <| viewRandomlySelectedCharacter (idToCharacter model.session.characters model.selectedCharacter) ]
-                ]
+    else
+        div []
+            [ hr [] []
+            , div [ class "tags" ] <| List.map (viewSelectedCharacter model) model.selectedCharacters
+            , div [] [ button [ onClick SelectRandomCharacter ] [ text "Choose One" ] ]
+            , div [] [ text <| viewRandomlySelectedCharacter (idToCharacter model.session.characters model.selectedCharacter) ]
+            ]
 
 
 viewRandomlySelectedCharacter : Maybe Character -> String
@@ -516,12 +490,9 @@ viewRandomlySelectedCharacter maybeCharacter =
 
 idToCharacter : List Character -> Maybe Int -> Maybe Character
 idToCharacter characters id =
-    case id of
-        Just num ->
-            List.head <| List.filter (\character -> character.id == num) characters
-
-        Nothing ->
-            Nothing
+    id
+        |> Maybe.andThen
+            (\num -> List.head <| List.filter (\character -> character.id == num) characters)
 
 
 viewSelectedCharacter : Model -> Int -> Html Msg
@@ -536,6 +507,7 @@ viewSelectedCharacter model selectedCharactersId =
     span [ class "tag is-small is-success" ] [ text char.name ]
 
 
+buttonText : EditingState -> String
 buttonText editing =
     case editing of
         NotEditing ->
