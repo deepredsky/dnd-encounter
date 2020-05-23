@@ -337,6 +337,6 @@ resultToMaybe result =
         Result.Ok model ->
             Just model
 
-        Result.Err error ->
+        Result.Err _ ->
             -- Debug.log (Json.errorToString error) Nothing
             Nothing

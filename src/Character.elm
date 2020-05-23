@@ -16,7 +16,7 @@ module Character exposing
     )
 
 import Browser
-import Character.Types exposing (Character)
+import Character.Types exposing (Character, Stat, Wealth)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -50,6 +50,7 @@ type EditingState
     | NotEditing
 
 
+newCharacterForm : Form
 newCharacterForm =
     { name = ""
     , hit_points = 0
@@ -68,7 +69,14 @@ newCharacter : Form -> Int -> Character
 newCharacter form id =
     { name = form.name
     , id = id
-    , armour = form.armour
+    , stat = newStat form
+    , wealth = emptyWealth
+    }
+
+
+newStat : Form -> Stat
+newStat form =
+    { armour = form.armour
     , hit_points = form.hit_points
     , initiative = form.initiative
     }
@@ -76,12 +84,29 @@ newCharacter form id =
 
 characterDecoder : Decode.Decoder Character
 characterDecoder =
-    Decode.map5 Character
+    Decode.map4 Character
+        (field "id" Decode.int)
         (field "name" Decode.string)
+        (field "stat" statDecoder)
+        (field "wealth" wealthDecoder)
+
+
+statDecoder : Decode.Decoder Stat
+statDecoder =
+    Decode.map3 Stat
         (field "armour" Decode.int)
         (field "hit_points" Decode.int)
         (field "initiative" Decode.int)
-        (field "id" Decode.int)
+
+
+wealthDecoder : Decode.Decoder Wealth
+wealthDecoder =
+    Decode.map5 Wealth
+        (field "gold" Decode.int)
+        (field "silver" Decode.int)
+        (field "copper" Decode.int)
+        (field "platinum" Decode.int)
+        (field "electrum" Decode.int)
 
 
 formDecoder : Decode.Decoder Form
@@ -109,23 +134,59 @@ editingStateDecoder =
 
 characterToValue character =
     Encode.object
-        [ ( "name", Encode.string character.name )
-        , ( "hit_points", Encode.int character.hit_points )
-        , ( "armour", Encode.int character.armour )
-        , ( "initiative", Encode.int character.initiative )
-        , ( "id", Encode.int character.id )
+        [ ( "id", Encode.int character.id )
+        , ( "name", Encode.string character.name )
+        , ( "stat", statToValue character.stat )
+        , ( "wealth", wealthToValue character.wealth )
         ]
 
 
+statToValue stat =
+    Encode.object
+        [ ( "hit_points", Encode.int stat.hit_points )
+        , ( "armour", Encode.int stat.armour )
+        , ( "initiative", Encode.int stat.initiative )
+        ]
+
+
+wealthToValue wealth =
+    Encode.object
+        [ ( "gold", Encode.int wealth.gold )
+        , ( "silver", Encode.int wealth.silver )
+        , ( "copper", Encode.int wealth.copper )
+        , ( "platinum", Encode.int wealth.platinum )
+        , ( "electrum", Encode.int wealth.electrum )
+        ]
+
+
+emptyCharacter : Character
 emptyCharacter =
     { name = ""
     , id = 0
-    , armour = 0
-    , hit_points = 0
-    , initiative = 0
+    , stat = emptyStat
+    , wealth = emptyWealth
     }
 
 
+emptyStat : Stat
+emptyStat =
+    { hit_points = 0
+    , initiative = 0
+    , armour = 0
+    }
+
+
+emptyWealth : Wealth
+emptyWealth =
+    { gold = 0
+    , silver = 0
+    , copper = 0
+    , platinum = 0
+    , electrum = 0
+    }
+
+
+emptyCharacterForm : Form
 emptyCharacterForm =
     { name = ""
     , hit_points = 0
@@ -138,13 +199,18 @@ emptyCharacterForm =
 saveCharacter : Model -> Int -> List Character
 saveCharacter model id =
     let
+        updatedStat form =
+            { armour = form.armour
+            , hit_points = form.hit_points
+            , initiative = form.initiative
+            }
+
         save character =
             if character.id == id then
                 { name = model.form.name
                 , id = id
-                , armour = model.form.armour
-                , hit_points = model.form.hit_points
-                , initiative = model.form.initiative
+                , stat = updatedStat model.form
+                , wealth = emptyWealth
                 }
 
             else
@@ -246,9 +312,9 @@ update msg model =
                 | session = newSession
                 , form =
                     { name = character.name
-                    , hit_points = character.hit_points
-                    , armour = character.armour
-                    , initiative = character.initiative
+                    , hit_points = character.stat.hit_points
+                    , armour = character.stat.armour
+                    , initiative = character.stat.initiative
                     , editing = Editing id
                     }
               }
@@ -398,9 +464,9 @@ viewCharacter character =
         []
         [ td [] [ input [ type_ "checkbox", onCheck (SelectCharacter character.id) ] [] ]
         , td [] [ text character.name ]
-        , td [] [ text (String.fromInt character.hit_points) ]
-        , td [] [ text (String.fromInt character.armour) ]
-        , td [] [ text (String.fromInt character.initiative) ]
+        , td [] [ text (String.fromInt character.stat.hit_points) ]
+        , td [] [ text (String.fromInt character.stat.armour) ]
+        , td [] [ text (String.fromInt character.stat.initiative) ]
         , td []
             [ button
                 [ onClick (Delete character.id)

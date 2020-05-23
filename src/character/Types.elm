@@ -1,10 +1,25 @@
-module Character.Types exposing (Character)
+module Character.Types exposing (Character, Stat, Wealth)
 
 
 type alias Character =
-    { name : String
-    , hit_points : Int
+    { id : Int
+    , name : String
+    , stat : Stat
+    , wealth : Wealth
+    }
+
+
+type alias Wealth =
+    { gold : Int
+    , silver : Int
+    , copper : Int
+    , platinum : Int
+    , electrum : Int
+    }
+
+
+type alias Stat =
+    { hit_points : Int
     , armour : Int
     , initiative : Int
-    , id : Int
     }
