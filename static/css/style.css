@@ -3,3 +3,19 @@ body {
     margin: 0;
     padding: 0;
 }
+
+.wealth input {
+  display: none;
+}
+
+.wealth .editing input {
+  display: block;
+}
+
+.wealth label {
+  display: block;
+}
+
+.wealth .editing label {
+  display: none;
+}

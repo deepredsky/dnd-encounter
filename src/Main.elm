@@ -28,6 +28,7 @@ import Random
 import Session exposing (Data, emptyData)
 import Url
 import Url.Parser as Parser exposing (Parser, map, oneOf, s, top)
+import Wealth exposing (..)
 
 
 main : Program (Maybe E.Value) Model Msg
@@ -74,6 +75,7 @@ type Page
     = NotFound Session.Data
     | Character Character.Model
     | Encounter Encounter.Model
+    | Wealth Wealth.Model
 
 
 emptyModel : Nav.Key -> Model
@@ -112,6 +114,7 @@ type Msg
     = NoOp
     | CharacterMsg Character.Msg
     | EncounterMsg Encounter.Msg
+    | WealthMsg Wealth.Msg
     | LinkClicked Browser.UrlRequest
     | UrlChanged Url.Url
     | Roll
@@ -161,10 +164,25 @@ update message model =
         NewRoll num ->
             ( { model | roll = num }, Cmd.none )
 
+        WealthMsg msg ->
+            case model.page of
+                Wealth data ->
+                    stepLoots model (Wealth.update msg data)
+
+                _ ->
+                    ( model, Cmd.none )
+
 
 randomRoll : Random.Generator Int
 randomRoll =
     Random.int 0 20
+
+
+stepLoots : Model -> ( Wealth.Model, Cmd Wealth.Msg ) -> ( Model, Cmd Msg )
+stepLoots model ( data, cmds ) =
+    ( { model | page = Wealth data }
+    , Cmd.map WealthMsg cmds
+    )
 
 
 stepCharacter : Model -> ( Character.Model, Cmd Character.Msg ) -> ( Model, Cmd Msg )
@@ -193,6 +211,9 @@ sessionFromModel model =
         Encounter m ->
             m.session
 
+        Wealth m ->
+            m.session
+
 
 route : Parser a b -> a -> Parser (b -> c) c
 route parser handler =
@@ -211,6 +232,8 @@ stepUrl url model =
                     (stepCharacter model (Character.init session))
                 , route (Parser.s "encounters")
                     (stepEncounter model (Encounter.init session))
+                , route (Parser.s "loots")
+                    (stepLoots model (Wealth.init session))
                 ]
     in
     case Parser.parse parser url of
@@ -256,6 +279,15 @@ view model =
                 ]
             }
 
+        Wealth d ->
+            { title = "Loots"
+            , body =
+                [ viewHeader
+                , Html.map WealthMsg (Wealth.view d)
+                , viewFooter
+                ]
+            }
+
 
 viewHeader : Html msg
 viewHeader =
@@ -280,6 +312,8 @@ viewHeader =
                     [ text "Characters" ]
                 , a [ class "navbar-item", href "/encounters" ]
                     [ text "Encounters" ]
+                , a [ class "navbar-item", href "/loots" ]
+                    [ text "Loots" ]
                 ]
             ]
         ]
