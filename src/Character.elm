@@ -6,12 +6,14 @@ module Character exposing
     , characterToValue
     , emptyCharacter
     , emptyCharacterForm
+    , idToCharacter
     , init
     , newCharacter
     , newCharacterForm
     , update
     , view
     , viewForm
+    , viewSelectedCharacter
     )
 
 import Character.Types exposing (Character, Stat, Wealth)

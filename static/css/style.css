@@ -4,11 +4,11 @@ body {
     padding: 0;
 }
 
-.wealth input {
+.wealth input[type = number] {
   display: none;
 }
 
-.wealth .editing input {
+.wealth .editing input[type = number] {
   display: block;
 }
 
