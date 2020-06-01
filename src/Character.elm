@@ -30,7 +30,7 @@ import Session
 
 type alias Form =
     { name : String
-    , hit_points : Int
+    , hitPoints : Int
     , armour : Int
     , initiative : Int
     , editing : EditingState
@@ -53,7 +53,7 @@ type EditingState
 newCharacterForm : Form
 newCharacterForm =
     { name = ""
-    , hit_points = 0
+    , hitPoints = 0
     , armour = 0
     , initiative = 0
     , editing = NotEditing
@@ -77,7 +77,7 @@ newCharacter form id =
 newStat : Form -> Stat
 newStat form =
     { armour = form.armour
-    , hit_points = form.hit_points
+    , hitPoints = form.hitPoints
     , initiative = form.initiative
     }
 
@@ -95,7 +95,7 @@ statDecoder : Decode.Decoder Stat
 statDecoder =
     Decode.map3 Stat
         (field "armour" Decode.int)
-        (field "hit_points" Decode.int)
+        (field "hitPoints" Decode.int)
         (field "initiative" Decode.int)
 
 
@@ -122,7 +122,7 @@ characterToValue character =
 statToValue : Stat -> Encode.Value
 statToValue stat =
     Encode.object
-        [ ( "hit_points", Encode.int stat.hit_points )
+        [ ( "hitPoints", Encode.int stat.hitPoints )
         , ( "armour", Encode.int stat.armour )
         , ( "initiative", Encode.int stat.initiative )
         ]
@@ -150,7 +150,7 @@ emptyCharacter =
 
 emptyStat : Stat
 emptyStat =
-    { hit_points = 0
+    { hitPoints = 0
     , initiative = 0
     , armour = 0
     }
@@ -169,7 +169,7 @@ emptyWealth =
 emptyCharacterForm : Form
 emptyCharacterForm =
     { name = ""
-    , hit_points = 0
+    , hitPoints = 0
     , armour = 0
     , initiative = 0
     , editing = NotEditing
@@ -181,7 +181,7 @@ saveCharacter model id =
     let
         updatedStat form =
             { armour = form.armour
-            , hit_points = form.hit_points
+            , hitPoints = form.hitPoints
             , initiative = form.initiative
             }
 
@@ -258,7 +258,7 @@ update msg model =
                 newHitPoint =
                     Maybe.withDefault 0 (String.toInt str)
             in
-            updateForm (\form -> { form | hit_points = newHitPoint }) model
+            updateForm (\form -> { form | hitPoints = newHitPoint }) model
 
         UpdateArmourField str ->
             let
@@ -292,7 +292,7 @@ update msg model =
                 | session = newSession
                 , form =
                     { name = character.name
-                    , hit_points = character.stat.hit_points
+                    , hitPoints = character.stat.hitPoints
                     , armour = character.stat.armour
                     , initiative = character.stat.initiative
                     , editing = Editing id
@@ -401,7 +401,7 @@ viewForm model =
                 [ class "input input-lg"
                 , placeholder "Hit Points"
                 , onInput UpdateHitPointsField
-                , value (String.fromInt form.hit_points)
+                , value (String.fromInt form.hitPoints)
                 ]
                 []
             ]
@@ -441,7 +441,7 @@ viewCharacter character =
         []
         [ td [] [ input [ type_ "checkbox", onCheck (SelectCharacter character.id) ] [] ]
         , td [] [ text character.name ]
-        , td [] [ text (String.fromInt character.stat.hit_points) ]
+        , td [] [ text (String.fromInt character.stat.hitPoints) ]
         , td [] [ text (String.fromInt character.stat.armour) ]
         , td [] [ text (String.fromInt character.stat.initiative) ]
         , td []

@@ -19,7 +19,7 @@ type alias Wealth =
 
 
 type alias Stat =
-    { hit_points : Int
+    { hitPoints : Int
     , armour : Int
     , initiative : Int
     }
